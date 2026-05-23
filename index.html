@@ -1,1 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: #2a2a3a; --accent: #6c63ff; --accent2: #ff6584;
+    --accent3: #43e97b; --text: #e8e8f0; --muted: #6b6b80;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .header { padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 11px; color: white; }
+  .header-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; }
+  .header-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .status-pill { display: flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 11px; color: var(--muted); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #666; transition: background 0.3s; }
+  .status-dot.connected { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+  .setup-banner { background: linear-gradient(135deg, rgba(108,99,255,0.1), rgba(255,101,132,0.05)); border-bottom: 1px solid rgba(108,99,255,0.2); padding: 12px 24px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+  .setup-banner input { flex: 1; min-width: 140px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s; }
+  .setup-banner input:focus { border-color: var(--accent); }
+  .setup-banner input::placeholder { color: var(--muted); }
+  .setup-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 18px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .setup-btn:hover { opacity: 0.85; }
+  .setup-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .quick-actions { padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+  .quick-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 20px; padding: 5px 12px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.08); }
+  .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .message { display: flex; gap: 12px; animation: fadeUp 0.3s ease; max-width: 85%; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .message.user { align-self: flex-end; flex-direction: row-reverse; }
+  .message.assistant { align-self: flex-start; }
+  .avatar { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; margin-top: 2px; }
+  .avatar.ai { background: linear-gradient(135deg, var(--accent), var(--accent2)); font-family: 'Syne', sans-serif; font-weight: 800; color: white; font-size: 11px; }
+  .avatar.user { background: var(--surface2); border: 1px solid var(--border); }
+  .bubble { padding: 12px 16px; border-radius: 14px; font-size: 13px; line-height: 1.65; max-width: 100%; }
+  .message.user .bubble { background: #1e1e30; border: 1px solid var(--border); border-top-right-radius: 4px; }
+  .message.assistant .bubble { background: #16162a; border: 1px solid rgba(108,99,255,0.2); border-top-left-radius: 4px; }
+  .action-tag { display: inline-block; background: rgba(67,233,123,0.1); border: 1px solid rgba(67,233,123,0.3); color: var(--accent3); border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .typing { display: flex; gap: 4px; align-items: center; padding: 14px 16px; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-5px); opacity: 1; } }
+  .input-area { padding: 16px 24px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; }
+  .input-wrap { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: flex-end; transition: border-color 0.2s; }
+  .input-wrap:focus-within { border-color: var(--accent); }
+  textarea { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; padding: 12px 14px; resize: none; max-height: 120px; line-height: 1.5; }
+  textarea::placeholder { color: var(--muted); }
+  .send-btn { width: 38px; height: 38px; background: var(--accent); border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; flex-shrink: 0; margin: 6px 6px 6px 0; }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .send-btn svg { width: 16px; height: 16px; fill: white; }
+</style>
+</head>
+<body>
 
+<div class="header">
+  <div class="header-left">
+    <div class="logo">GHL</div>
+    <div>
+      <div class="header-title">GHL AI Assistant</div>
+      <div class="header-sub">Powered by Claude</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Not connected</span>
+  </div>
+</div>
+
+<div class="setup-banner">
+  <span class="setup-label">Connect GHL</span>
+  <input type="password" id="apiKeyInput" placeholder="Private Integration API key..." />
+  <input type="text" id="locationInput" placeholder="Location ID..." style="max-width:200px" />
+  <input type="password" id="claudeKeyInput" placeholder="Anthropic API key..." style="max-width:200px" />
+  <button class="setup-btn" onclick="connect()">Connect</button>
+</div>
+
+<div class="quick-actions">
+  <button class="quick-btn" onclick="quickPrompt('List all my active funnels')">📋 List Funnels</button>
+  <button class="quick-btn" onclick="quickPrompt('Show me my active workflows')">⚡ Workflows</button>
+  <button class="quick-btn" onclick="quickPrompt('How many contacts do I have?')">👥 Contacts</button>
+  <button class="quick-btn" onclick="quickPrompt('Show me my pipelines')">🎯 Pipelines</button>
+  <button class="quick-btn" onclick="quickPrompt('What calendars do I have set up?')">📅 Calendars</button>
+  <button class="quick-btn" onclick="quickPrompt('Give me a full account summary')">📊 Account Summary</button>
+</div>
+
+<div class="messages" id="messages">
+  <div class="message assistant">
+    <div class="avatar ai">AI</div>
+    <div class="bubble">
+      <p>👋 Hey! I'm your GHL AI Assistant.</p>
+      <p>Paste your <strong>GHL Private Integration key</strong>, <strong>Location ID</strong>, and your <strong>Anthropic API key</strong> above — then just tell me what you need done.</p>
+      <p style="color:#6b6b80;font-size:11px;margin-top:8px">🔒 Keys stay in your browser. Never stored anywhere.</p>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-wrap">
+    <textarea id="userInput" placeholder="Tell me what you need done in GHL..." rows="1"
+      onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  </div>
+  <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+    <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+  </button>
+</div>
+
+<script>
+  let ghlApiKey = '', locationId = '', claudeKey = '';
+  let isConnected = false, isLoading = false;
+  let conversationHistory = [];
+
+  function connect() {
+    const k = document.getElementById('apiKeyInput').value.trim();
+    const l = document.getElementById('locationInput').value.trim();
+    const c = document.getElementById('claudeKeyInput').value.trim();
+    if (!k || !l || !c) { alert('Please fill in all three fields.'); return; }
+    ghlApiKey = k; locationId = l; claudeKey = c;
+    isConnected = true;
+    document.getElementById('statusDot').className = 'status-dot connected';
+    document.getElementById('statusText').textContent = 'Connected';
+    document.getElementById('sendBtn').disabled = false;
+    addMessage('assistant', '<span class="action-tag">CONNECTED</span><br>You\'re in! 🎉 GHL is connected and ready.<br><br>What do you need me to do? Use the quick buttons or just tell me in plain English.');
+  }
+
+  function quickPrompt(text) {
+    if (!isConnected) { alert('Connect your GHL account first!'); return; }
+    document.getElementById('userInput').value = text;
+    sendMessage();
+  }
+
+  function addMessage(role, html) {
+    const msgs = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+    const av = document.createElement('div');
+    av.className = 'avatar ' + (role === 'assistant' ? 'ai' : 'user');
+    av.textContent = role === 'assistant' ? 'AI' : '👤';
+    const bub = document.createElement('div');
+    bub.className = 'bubble';
+    bub.innerHTML = html;
+    div.appendChild(av); div.appendChild(bub);
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function showTyping() {
+    const msgs = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message assistant'; div.id = 'typingInd';
+    const av = document.createElement('div'); av.className = 'avatar ai'; av.textContent = 'AI';
+    const bub = document.createElement('div'); bub.className = 'bubble typing';
+    bub.innerHTML = '<span></span><span></span><span></span>';
+    div.appendChild(av); div.appendChild(bub); msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function removeTyping() { const el = document.getElementById('typingInd'); if (el) el.remove(); }
+
+  async function sendMessage() {
+    if (!isConnected || isLoading) return;
+    const input = document.getElementById('userInput');
+    const text = input.value.trim(); if (!text) return;
+    input.value = ''; autoResize(input);
+    isLoading = true; document.getElementById('sendBtn').disabled = true;
+    addMessage('user', '<p>' + text.replace(/</g,'&lt;') + '</p>');
+    conversationHistory.push({ role: 'user', content: text });
+    showTyping();
+
+    const system = `You are an AI assistant managing a GoHighLevel (GHL) CRM account for a business owner. Location ID: ${locationId}.
+
+You help with: funnels, contacts, workflows, pipelines, calendars, SMS/email campaigns, forms.
+
+When the user asks to do something, be conversational and helpful. Since this is a prototype, describe what GHL API action you'd take and simulate a realistic response. Format clearly with line breaks.
+
+Use → ACTION: to show what you're doing
+Use → RESULT: to show simulated output
+
+Keep it practical and action-oriented. The owner is busy and just needs things done fast.`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system, messages: conversationHistory })
+      });
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || 'Something went wrong.';
+      conversationHistory.push({ role: 'assistant', content: reply });
+      removeTyping();
+      const fmt = reply
+        .replace(/→ ACTION:/g, '<span class="action-tag">ACTION</span>')
+        .replace(/→ RESULT:/g, '<br><strong style="color:#43e97b;font-size:11px">RESULT:</strong>')
+        .replace(/\n/g, '<br>');
+      addMessage('assistant', fmt);
+    } catch(err) {
+      removeTyping();
+      addMessage('assistant', '<p style="color:#ff6584">⚠️ Error: ' + err.message + '</p>');
+    }
+    isLoading = false; document.getElementById('sendBtn').disabled = false; input.focus();
+  }
+
+  function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+  function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+</script>
+</body>
+</html>
