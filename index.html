@@ -45,7 +45,6 @@
   .bubble { padding: 12px 16px; border-radius: 14px; font-size: 13px; line-height: 1.65; max-width: 100%; white-space: pre-wrap; word-break: break-word; }
   .msg.user .bubble { background: #1e1e30; border: 1px solid var(--border); border-top-right-radius: 4px; }
   .msg.ai .bubble { background: #16162a; border: 1px solid rgba(108,99,255,0.2); border-top-left-radius: 4px; }
-  .atag { display: inline-block; background: rgba(67,233,123,0.1); border: 1px solid rgba(67,233,123,0.3); color: var(--accent3); border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-bottom: 6px; letter-spacing: 0.5px; }
   .typing { display: flex; gap: 4px; align-items: center; padding: 14px 16px; }
   .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
   .typing span:nth-child(2) { animation-delay: 0.2s; }
@@ -163,8 +162,7 @@ Paste your three keys above and hit Connect — then tell me what you need done 
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514
-',max_tokens:1024,system:system,messages:history})
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:system,messages:history})
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
       const data=await res.json();
