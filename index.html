@@ -163,7 +163,8 @@ Paste your three keys above and hit Connect — then tell me what you need done 
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1024,system:system,messages:history})
+        body:JSON.stringify({model:'claude-sonnet-4-20250514
+',max_tokens:1024,system:system,messages:history})
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
       const data=await res.json();
