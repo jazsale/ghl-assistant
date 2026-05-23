@@ -157,12 +157,14 @@ Paste your three keys above and hit Connect — then tell me what you need done 
     addMsg('user',text);
     history.push({role:'user',content:text});
     showTyping();
-    const system=`You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy.`;
+
+    const system=`You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. GHL API Key: ${ghlKey}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy.`;
+
     try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
+      const res=await fetch('/api/chat',{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:system,messages:history})
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:history,system:system,claudeKey:claudeKey})
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
       const data=await res.json();
@@ -171,7 +173,7 @@ Paste your three keys above and hit Connect — then tell me what you need done 
       removeTyping();addMsg('ai',reply);
     }catch(err){
       removeTyping();
-      addMsg('ai','⚠️ Error: '+err.message+'\n\nCheck your Anthropic API key and try again.');
+      addMsg('ai','⚠️ Error: '+err.message+'\n\nTry again.');
     }
     loading=false;document.getElementById('sendBtn').disabled=false;inp.focus();
   }
