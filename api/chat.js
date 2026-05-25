@@ -8,7 +8,6 @@ export default async function handler(req, res) {
 
   const { messages, system, claudeKey, ghlKey, locationId, ghlAction, ghlParams } = req.body;
 
-  // Handle direct GHL API calls
   if (ghlAction) {
     try {
       let ghlUrl = '';
@@ -17,13 +16,13 @@ export default async function handler(req, res) {
 
       switch(ghlAction) {
         case 'getWorkflows':
-          ghlUrl = `https://services.leadconnectorhq.com/workflows/?locationId=${locationId}`;
+          ghlUrl = `https://services.leadconnectorhq.com/workflows/?locationId=${locationId}&limit=20`;
           break;
         case 'getContacts':
           ghlUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=20`;
           break;
         case 'getFunnels':
-          ghlUrl = `https://services.leadconnectorhq.com/funnels/?locationId=${locationId}`;
+          ghlUrl = `https://services.leadconnectorhq.com/funnels/?locationId=${locationId}&limit=20`;
           break;
         case 'getPipelines':
           ghlUrl = `https://services.leadconnectorhq.com/opportunities/pipelines/?locationId=${locationId}`;
@@ -36,11 +35,6 @@ export default async function handler(req, res) {
           ghlMethod = 'POST';
           ghlBody = JSON.stringify({ ...ghlParams, locationId });
           break;
-        case 'createWorkflow':
-          ghlUrl = `https://services.leadconnectorhq.com/workflows/`;
-          ghlMethod = 'POST';
-          ghlBody = JSON.stringify({ ...ghlParams, locationId });
-          break;
         default:
           return res.status(400).json({ error: 'Unknown GHL action' });
       }
@@ -50,20 +44,28 @@ export default async function handler(req, res) {
         headers: {
           'Authorization': `Bearer ${ghlKey}`,
           'Content-Type': 'application/json',
-          'Version': '2021-07-28'
+          'Version': '2021-07-28',
+          'Accept': 'application/json'
         },
         ...(ghlBody && { body: ghlBody })
       });
 
-      const ghlData = await ghlResponse.json();
-      return res.status(200).json({ ghlData });
+      const responseText = await ghlResponse.text();
+      
+      let ghlData;
+      try {
+        ghlData = JSON.parse(responseText);
+      } catch(e) {
+        ghlData = { raw: responseText, status: ghlResponse.status };
+      }
+
+      return res.status(200).json({ ghlData, status: ghlResponse.status });
 
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   }
 
-  // Handle Claude AI calls
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
