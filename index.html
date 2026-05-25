@@ -132,7 +132,9 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
 
   async function ghlFetch(action){
     if(!connected){alert('Connect your keys first!');return;}
-    loading=true;document.getElementById('sendBtn').disabled=true;
+    if(loading)return;
+    loading=true;
+    document.getElementById('sendBtn').disabled=true;
     const labels={'getWorkflows':'📋 Pulling your workflows...','getFunnels':'🔀 Pulling your funnels...','getContacts':'👥 Pulling your contacts...','getPipelines':'🎯 Pulling your pipelines...','getCalendars':'📅 Pulling your calendars...'};
     addMsg('user',labels[action]||action);
     showTyping();
@@ -144,21 +146,27 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
       });
       const data=await res.json();
       removeTyping();
-      if(data.ghlData){
+      
+      // Show raw response for debugging
+      addMsg('ai','📡 GHL Response (status '+data.status+'):\n'+JSON.stringify(data.ghlData,null,2).substring(0,2000));
+      
+      // Then analyze with Claude
+      if(data.ghlData && !data.ghlData.error){
+        showTyping();
         const summary=await analyzeGHLData(action,data.ghlData);
+        removeTyping();
         addMsg('ai',summary);
-      } else {
-        addMsg('ai','⚠️ Could not fetch data: '+(data.error||'Unknown error'));
       }
     }catch(err){
       removeTyping();
-      addMsg('ai','⚠️ Error: '+err.message);
+      addMsg('ai','⚠️ Fetch error: '+err.message);
     }
-    loading=false;document.getElementById('sendBtn').disabled=false;
+    loading=false;
+    document.getElementById('sendBtn').disabled=false;
   }
 
   async function analyzeGHLData(action,ghlData){
-    const prompt=`Here is live data from Jaz's GHL account for action "${action}": ${JSON.stringify(ghlData,null,2)}\n\nPlease analyze this data and give Jaz a clear, actionable summary. What exists, what's working, what's missing, and what should be done next? Be specific and practical.`;
+    const prompt=`Here is live data from Jaz's GHL account for "${action}": ${JSON.stringify(ghlData,null,2).substring(0,3000)}\n\nAnalyze this and give Jaz a clear practical summary. What exists, what's working, what's missing, what to do next.`;
     history.push({role:'user',content:prompt});
     try{
       const res=await fetch('/api/chat',{
@@ -167,16 +175,16 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
         body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
       });
       const data=await res.json();
-      const reply=data.content?.[0]?.text||'Could not analyze data.';
+      const reply=data.content?.[0]?.text||'No analysis available.';
       history.push({role:'assistant',content:reply});
       return reply;
     }catch(err){
-      return '⚠️ Could not analyze: '+err.message;
+      return '⚠️ Analysis error: '+err.message;
     }
   }
 
   function getSystem(){
-    return `You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy and needs things done fast.`;
+    return `You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy.`;
   }
 
   function addMsg(role,text){
@@ -189,6 +197,7 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
 
   function showTyping(){
     const box=document.getElementById('msgs');
+    if(document.getElementById('typing'))return;
     const d=document.createElement('div');d.className='msg ai';d.id='typing';
     const av=document.createElement('div');av.className='av ai';av.textContent='AI';
     const b=document.createElement('div');b.className='bubble typing';b.innerHTML='<span></span><span></span><span></span>';
@@ -212,14 +221,14 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
       });
-      if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
+      if(!res.ok){const e=await res.json();throw new Error(e.error||'API error '+res.status);}
       const data=await res.json();
       const reply=data.content?.[0]?.text||'No response.';
       history.push({role:'assistant',content:reply});
       removeTyping();addMsg('ai',reply);
     }catch(err){
       removeTyping();
-      addMsg('ai','⚠️ Error: '+err.message+'\n\nTry again.');
+      addMsg('ai','⚠️ Error: '+err.message);
     }
     loading=false;document.getElementById('sendBtn').disabled=false;inp.focus();
   }
