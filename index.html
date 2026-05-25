@@ -83,19 +83,19 @@
   <button class="setup-btn" onclick="connect()">Connect →</button>
 </div>
 <div class="quick">
-  <button class="qbtn" onclick="q('Review all my current active workflows and messaging sequences. List everything that is set up.')">📋 Review Workflows</button>
-  <button class="qbtn" onclick="q('List all my active funnels and landing pages')">🔀 Funnels</button>
-  <button class="qbtn" onclick="q('How many contacts do I have and show me the most recent ones')">👥 Contacts</button>
-  <button class="qbtn" onclick="q('Show me my pipelines and opportunity counts')">🎯 Pipelines</button>
-  <button class="qbtn" onclick="q('Give me a full summary of my GHL account')">📊 Account Summary</button>
-  <button class="qbtn" onclick="q('What calendars do I have and how are they set up?')">📅 Calendars</button>
+  <button class="qbtn" onclick="ghlFetch('getWorkflows')">📋 Workflows</button>
+  <button class="qbtn" onclick="ghlFetch('getFunnels')">🔀 Funnels</button>
+  <button class="qbtn" onclick="ghlFetch('getContacts')">👥 Contacts</button>
+  <button class="qbtn" onclick="ghlFetch('getPipelines')">🎯 Pipelines</button>
+  <button class="qbtn" onclick="ghlFetch('getCalendars')">📅 Calendars</button>
+  <button class="qbtn" onclick="q('Give me a full summary of my GHL account and what I should focus on')">📊 Account Summary</button>
 </div>
 <div class="messages" id="msgs">
   <div class="msg ai">
     <div class="av ai">AI</div>
     <div class="bubble">Hey Jaz! Your GHL AI Assistant is ready.
 
-Paste your three keys above and hit Connect — then tell me what you need done in plain English.
+Paste your three keys above and hit Connect — then use the quick buttons to pull live data from your GHL account, or just tell me what you need done.
 
 🔒 Keys stay in this browser tab only. Never stored anywhere.</div>
   </div>
@@ -122,12 +122,61 @@ Paste your three keys above and hit Connect — then tell me what you need done 
     document.getElementById('statusTxt').textContent='Connected';
     document.getElementById('inp').disabled=false;
     document.getElementById('sendBtn').disabled=false;
-    addMsg('ai','🎉 Connected! Ready to work.\n\nWhat do you need me to do first?');
+    addMsg('ai','🎉 Connected! GHL is linked and ready.\n\nUse the quick buttons to pull live data from your account, or just tell me what you need.');
   }
 
   function q(text){
     if(!connected){alert('Connect your keys first!');return;}
     document.getElementById('inp').value=text;send();
+  }
+
+  async function ghlFetch(action){
+    if(!connected){alert('Connect your keys first!');return;}
+    loading=true;document.getElementById('sendBtn').disabled=true;
+    const labels={'getWorkflows':'📋 Pulling your workflows...','getFunnels':'🔀 Pulling your funnels...','getContacts':'👥 Pulling your contacts...','getPipelines':'🎯 Pulling your pipelines...','getCalendars':'📅 Pulling your calendars...'};
+    addMsg('user',labels[action]||action);
+    showTyping();
+    try{
+      const res=await fetch('/api/chat',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ghlAction:action,ghlKey:ghlKey,locationId:locId,claudeKey:claudeKey})
+      });
+      const data=await res.json();
+      removeTyping();
+      if(data.ghlData){
+        const summary=await analyzeGHLData(action,data.ghlData);
+        addMsg('ai',summary);
+      } else {
+        addMsg('ai','⚠️ Could not fetch data: '+(data.error||'Unknown error'));
+      }
+    }catch(err){
+      removeTyping();
+      addMsg('ai','⚠️ Error: '+err.message);
+    }
+    loading=false;document.getElementById('sendBtn').disabled=false;
+  }
+
+  async function analyzeGHLData(action,ghlData){
+    const prompt=`Here is live data from Jaz's GHL account for action "${action}": ${JSON.stringify(ghlData,null,2)}\n\nPlease analyze this data and give Jaz a clear, actionable summary. What exists, what's working, what's missing, and what should be done next? Be specific and practical.`;
+    history.push({role:'user',content:prompt});
+    try{
+      const res=await fetch('/api/chat',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
+      });
+      const data=await res.json();
+      const reply=data.content?.[0]?.text||'Could not analyze data.';
+      history.push({role:'assistant',content:reply});
+      return reply;
+    }catch(err){
+      return '⚠️ Could not analyze: '+err.message;
+    }
+  }
+
+  function getSystem(){
+    return `You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy and needs things done fast.`;
   }
 
   function addMsg(role,text){
@@ -157,14 +206,11 @@ Paste your three keys above and hit Connect — then tell me what you need done 
     addMsg('user',text);
     history.push({role:'user',content:text});
     showTyping();
-
-    const system=`You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. GHL API Key: ${ghlKey}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy.`;
-
     try{
       const res=await fetch('/api/chat',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:history,system:system,claudeKey:claudeKey})
+        body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
       const data=await res.json();
