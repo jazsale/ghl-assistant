@@ -16,13 +16,13 @@ export default async function handler(req, res) {
 
       switch(ghlAction) {
         case 'getWorkflows':
-          ghlUrl = `https://services.leadconnectorhq.com/workflows/?locationId=${locationId}&limit=20`;
+          ghlUrl = `https://services.leadconnectorhq.com/workflows/?locationId=${locationId}`;
           break;
         case 'getContacts':
           ghlUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=20`;
           break;
         case 'getFunnels':
-          ghlUrl = `https://services.leadconnectorhq.com/funnels/?locationId=${locationId}&limit=20`;
+          ghlUrl = `https://services.leadconnectorhq.com/funnels/?locationId=${locationId}`;
           break;
         case 'getPipelines':
           ghlUrl = `https://services.leadconnectorhq.com/opportunities/pipelines/?locationId=${locationId}`;
