@@ -15,6 +15,7 @@ export default async function handler(req, res) {
       let ghlBody = null;
 
       switch(ghlAction) {
+        // READ actions
         case 'getWorkflows':
           ghlUrl = `https://services.leadconnectorhq.com/workflows/?locationId=${locationId}`;
           break;
@@ -30,13 +31,86 @@ export default async function handler(req, res) {
         case 'getCalendars':
           ghlUrl = `https://services.leadconnectorhq.com/calendars/?locationId=${locationId}`;
           break;
+        case 'getForms':
+          ghlUrl = `https://services.leadconnectorhq.com/forms/?locationId=${locationId}`;
+          break;
+        case 'getTags':
+          ghlUrl = `https://services.leadconnectorhq.com/locations/${locationId}/tags`;
+          break;
+        case 'getOpportunities':
+          ghlUrl = `https://services.leadconnectorhq.com/opportunities/search?location_id=${locationId}&limit=20`;
+          break;
+
+        // WRITE actions  
         case 'createContact':
           ghlUrl = `https://services.leadconnectorhq.com/contacts/`;
           ghlMethod = 'POST';
           ghlBody = JSON.stringify({ ...ghlParams, locationId });
           break;
+        case 'updateContact':
+          ghlUrl = `https://services.leadconnectorhq.com/contacts/${ghlParams.contactId}`;
+          ghlMethod = 'PUT';
+          ghlBody = JSON.stringify(ghlParams.data);
+          break;
+        case 'addTagToContact':
+          ghlUrl = `https://services.leadconnectorhq.com/contacts/${ghlParams.contactId}/tags`;
+          ghlMethod = 'POST';
+          ghlBody = JSON.stringify({ tags: ghlParams.tags });
+          break;
+        case 'createOpportunity':
+          ghlUrl = `https://services.leadconnectorhq.com/opportunities/`;
+          ghlMethod = 'POST';
+          ghlBody = JSON.stringify({ ...ghlParams, locationId });
+          break;
+        case 'updateOpportunity':
+          ghlUrl = `https://services.leadconnectorhq.com/opportunities/${ghlParams.opportunityId}`;
+          ghlMethod = 'PUT';
+          ghlBody = JSON.stringify(ghlParams.data);
+          break;
+        case 'sendSMS':
+          ghlUrl = `https://services.leadconnectorhq.com/conversations/messages`;
+          ghlMethod = 'POST';
+          ghlBody = JSON.stringify({
+            type: 'SMS',
+            contactId: ghlParams.contactId,
+            message: ghlParams.message,
+            locationId
+          });
+          break;
+        case 'sendEmail':
+          ghlUrl = `https://services.leadconnectorhq.com/conversations/messages`;
+          ghlMethod = 'POST';
+          ghlBody = JSON.stringify({
+            type: 'Email',
+            contactId: ghlParams.contactId,
+            subject: ghlParams.subject,
+            html: ghlParams.body,
+            locationId
+          });
+          break;
+        case 'createTask':
+          ghlUrl = `https://services.leadconnectorhq.com/contacts/${ghlParams.contactId}/tasks`;
+          ghlMethod = 'POST';
+          ghlBody = JSON.stringify({
+            title: ghlParams.title,
+            dueDate: ghlParams.dueDate,
+            completed: false,
+            assignedTo: ghlParams.assignedTo
+          });
+          break;
+        case 'addContactToWorkflow':
+          ghlUrl = `https://services.leadconnectorhq.com/contacts/${ghlParams.contactId}/workflow/${ghlParams.workflowId}`;
+          ghlMethod = 'POST';
+          ghlBody = JSON.stringify({});
+          break;
+        case 'updateFunnelPage':
+          ghlUrl = `https://services.leadconnectorhq.com/funnels/page/${ghlParams.pageId}`;
+          ghlMethod = 'PUT';
+          ghlBody = JSON.stringify(ghlParams.data);
+          break;
+
         default:
-          return res.status(400).json({ error: 'Unknown GHL action' });
+          return res.status(400).json({ error: 'Unknown GHL action: ' + ghlAction });
       }
 
       const ghlResponse = await fetch(ghlUrl, {
@@ -51,7 +125,6 @@ export default async function handler(req, res) {
       });
 
       const responseText = await ghlResponse.text();
-      
       let ghlData;
       try {
         ghlData = JSON.parse(responseText);
@@ -66,6 +139,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // Claude AI call
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
