@@ -32,8 +32,6 @@
   .quick { padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface); overflow-x: auto; }
   .qbtn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 20px; padding: 5px 12px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .qbtn:hover { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.08); }
-  .qbtn.write { border-color: rgba(255,101,132,0.3); color: var(--accent2); }
-  .qbtn.write:hover { border-color: var(--accent2); background: rgba(255,101,132,0.08); }
   .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
   .messages::-webkit-scrollbar { width: 4px; }
   .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -47,6 +45,7 @@
   .bubble { padding: 12px 16px; border-radius: 14px; font-size: 13px; line-height: 1.65; max-width: 100%; white-space: pre-wrap; word-break: break-word; }
   .msg.user .bubble { background: #1e1e30; border: 1px solid var(--border); border-top-right-radius: 4px; }
   .msg.ai .bubble { background: #16162a; border: 1px solid rgba(108,99,255,0.2); border-top-left-radius: 4px; }
+  .action-bubble { background: rgba(67,233,123,0.05); border: 1px solid rgba(67,233,123,0.2); border-top-left-radius: 4px; font-size: 12px; color: var(--accent3); }
   .typing { display: flex; gap: 4px; align-items: center; padding: 14px 16px; }
   .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
   .typing span:nth-child(2) { animation-delay: 0.2s; }
@@ -93,25 +92,21 @@
   <button class="qbtn" onclick="ghlFetch('getForms')">📝 Forms</button>
   <button class="qbtn" onclick="ghlFetch('getTags')">🏷️ Tags</button>
   <button class="qbtn" onclick="ghlFetch('getOpportunities')">💰 Opportunities</button>
-  <button class="qbtn" onclick="q('Give me a full account summary and action plan')">📊 Account Summary</button>
+  <button class="qbtn" onclick="q('Give me a full account summary and action plan')">📊 Summary</button>
 </div>
 <div class="messages" id="msgs">
   <div class="msg ai">
     <div class="av ai">AI</div>
     <div class="bubble">Hey Jaz! Your GHL AI Assistant is ready.
 
-Connect your keys above then:
-- Use the buttons to pull live data from GHL
-- Type anything to get help or make changes
-- I can now READ and WRITE to your GHL account
+Connect your keys above then just tell me what you need — I'll actually DO it in GHL, not just describe it.
 
-Examples:
-"Add John Smith (john@email.com, 405-555-1234) as a contact"
-"Send a text to contact ID xyz saying hey lets connect"
-"Show me all my contacts from this week"
-"Pull my pipelines and tell me what needs attention"
+Try:
+- "Add John Smith john@email.com (405) 555-1234 as a contact"
+- "Pull my contacts and tell me who needs follow up"
+- "Show me all my workflows"
 
-🔒 Keys stay in this browser tab only.</div>
+🔒 Keys stay in your browser only.</div>
   </div>
 </div>
 <div class="input-area">
@@ -136,7 +131,7 @@ Examples:
     document.getElementById('statusTxt').textContent='Connected';
     document.getElementById('inp').disabled=false;
     document.getElementById('sendBtn').disabled=false;
-    addMsg('ai','🎉 Connected! GHL is fully linked.\n\nI can now read AND write to your account. Use the buttons or just tell me what you need done.');
+    addMsg('ai','🎉 Connected! Ready to work.\n\nJust tell me what you need done — I will execute it directly in your GHL account.');
   }
 
   function q(text){
@@ -150,34 +145,29 @@ Examples:
     loading=true;
     document.getElementById('sendBtn').disabled=true;
     const labels={
-      'getWorkflows':'📋 Pulling your workflows...',
-      'getFunnels':'🔀 Pulling your funnels...',
-      'getContacts':'👥 Pulling your contacts...',
-      'getPipelines':'🎯 Pulling your pipelines...',
-      'getCalendars':'📅 Pulling your calendars...',
-      'getForms':'📝 Pulling your forms...',
-      'getTags':'🏷️ Pulling your tags...',
-      'getOpportunities':'💰 Pulling your opportunities...'
+      'getWorkflows':'📋 Pulling workflows...',
+      'getFunnels':'🔀 Pulling funnels...',
+      'getContacts':'👥 Pulling contacts...',
+      'getPipelines':'🎯 Pulling pipelines...',
+      'getCalendars':'📅 Pulling calendars...',
+      'getForms':'📝 Pulling forms...',
+      'getTags':'🏷️ Pulling tags...',
+      'getOpportunities':'💰 Pulling opportunities...'
     };
     addMsg('user',labels[action]||action);
     showTyping();
     try{
-      const res=await fetch('/api/chat',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ghlAction:action,ghlKey:ghlKey,locationId:locId,claudeKey:claudeKey})
-      });
-      const data=await res.json();
+      const data=await callGHL(action,{});
       removeTyping();
       if(data.ghlData){
-        // Add to history for context
-        history.push({role:'user',content:`Here is the live GHL data for ${action}: ${JSON.stringify(data.ghlData,null,2).substring(0,3000)}`});
+        const contextMsg=`Live GHL data for ${action}: ${JSON.stringify(data.ghlData,null,2).substring(0,3000)}`;
+        history.push({role:'user',content:contextMsg});
         showTyping();
-        const summary=await askClaude(`Analyze this live GHL data for action "${action}" and give Jaz a clear practical summary. What exists, what's working, what's missing, what to do next. Be specific and actionable.`);
+        const reply=await callClaude(`Analyze this live GHL data and give Jaz a clear practical summary. What exists, what's working, what needs attention, what to do next. Be specific and direct.`);
         removeTyping();
-        addMsg('ai',summary);
+        addMsg('ai',reply);
       } else {
-        addMsg('ai','⚠️ GHL error (status '+data.status+'): '+JSON.stringify(data.ghlData));
+        addMsg('ai','⚠️ GHL error ('+data.status+'): '+JSON.stringify(data.ghlData));
       }
     }catch(err){
       removeTyping();
@@ -187,48 +177,137 @@ Examples:
     document.getElementById('sendBtn').disabled=false;
   }
 
-  async function askClaude(prompt){
+  async function callGHL(action, params){
+    const res=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ghlAction:action,ghlKey:ghlKey,locationId:locId,claudeKey:claudeKey,ghlParams:params})
+    });
+    return await res.json();
+  }
+
+  async function callClaude(prompt){
     history.push({role:'user',content:prompt});
+    const res=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
+    });
+    const data=await res.json();
+    const reply=data.content?.[0]?.text||'No response.';
+    history.push({role:'assistant',content:reply});
+    return reply;
+  }
+
+  async function executeGHLAction(action, params){
+    addMsg('ai','⚡ Executing: '+action+'...');
+    try{
+      const data=await callGHL(action,params);
+      if(data.status===200||data.status===201){
+        return {success:true, data:data.ghlData};
+      } else {
+        return {success:false, error:JSON.stringify(data.ghlData)};
+      }
+    }catch(err){
+      return {success:false, error:err.message};
+    }
+  }
+
+  function getSystem(){
+    return `You are an AI assistant that EXECUTES tasks in GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK.
+
+Location ID: ${locId}
+
+CRITICAL: When Jaz asks you to do something in GHL, respond with a JSON action block so the system can execute it. Format:
+[GHL_ACTION:{"action":"actionName","params":{...}}]
+
+Available actions and their params:
+- createContact: {firstName, lastName, email, phone}
+- updateContact: {contactId, data:{...}}
+- addTagToContact: {contactId, tags:["tag1","tag2"]}
+- createOpportunity: {title, pipelineId, stageId, contactId, monetaryValue}
+- sendSMS: {contactId, message}
+- sendEmail: {contactId, subject, body}
+- createTask: {contactId, title, dueDate}
+- addContactToWorkflow: {contactId, workflowId}
+
+Examples:
+User: "Add John Smith john@test.com as a contact"
+You respond: "Adding John Smith to your GHL contacts now! [GHL_ACTION:{"action":"createContact","params":{"firstName":"John","lastName":"Smith","email":"john@test.com"}}]"
+
+User: "Tag contact abc123 as hot lead"  
+You respond: "Tagging that contact right now! [GHL_ACTION:{"action":"addTagToContact","params":{"contactId":"abc123","tags":["hot-lead"]}}]"
+
+Always include the [GHL_ACTION:...] block when executing. For read operations, just ask me to use the buttons or tell you what you see.
+
+Jaz's details:
+- Phone: (405) 886-9441
+- Website: salesignaturehomes.com
+- Booking: https://salesignaturehomes.com/scheduleyourfreecall
+- Social: @thejazsale
+
+Be fast, direct, and practical. Jaz is busy.`;
+  }
+
+  async function send(){
+    if(!connected||loading)return;
+    const inp=document.getElementById('inp');
+    const text=inp.value.trim();if(!text)return;
+    inp.value='';resize(inp);loading=true;
+    document.getElementById('sendBtn').disabled=true;
+    addMsg('user',text);
+    history.push({role:'user',content:text});
+    showTyping();
+
     try{
       const res=await fetch('/api/chat',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
       });
+      if(!res.ok){const e=await res.json();throw new Error(e.error||'API error '+res.status);}
       const data=await res.json();
-      const reply=data.content?.[0]?.text||'No response.';
+      let reply=data.content?.[0]?.text||'No response.';
       history.push({role:'assistant',content:reply});
-      return reply;
+      removeTyping();
+
+      // Check for GHL action to execute
+      const actionMatch=reply.match(/\[GHL_ACTION:(.*?)\]/s);
+      if(actionMatch){
+        try{
+          const actionData=JSON.parse(actionMatch[1]);
+          const displayReply=reply.replace(/\[GHL_ACTION:.*?\]/s,'').trim();
+          if(displayReply) addMsg('ai',displayReply);
+
+          // Execute the action
+          showTyping();
+          const result=await executeGHLAction(actionData.action, actionData.params);
+          removeTyping();
+
+          if(result.success){
+            const successMsg=await callClaude(`The GHL action "${actionData.action}" was executed successfully. Result: ${JSON.stringify(result.data).substring(0,500)}. Tell Jaz it's done in one sentence and what was created/updated.`);
+            addMsg('ai','✅ '+successMsg);
+          } else {
+            addMsg('ai','⚠️ Action failed: '+result.error);
+          }
+        }catch(e){
+          addMsg('ai',reply);
+        }
+      } else {
+        addMsg('ai',reply);
+      }
     }catch(err){
-      return '⚠️ Claude error: '+err.message;
+      removeTyping();
+      addMsg('ai','⚠️ Error: '+err.message);
     }
+    loading=false;document.getElementById('sendBtn').disabled=false;inp.focus();
   }
 
-  function getSystem(){
-    return `You are an AI assistant with full read and write access to GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK.
-
-Location ID: ${locId}
-GHL API Key is available for all operations.
-
-You can perform these GHL actions by describing them:
-- READ: getWorkflows, getContacts, getFunnels, getPipelines, getCalendars, getForms, getTags, getOpportunities
-- WRITE: createContact, updateContact, addTagToContact, createOpportunity, updateOpportunity, sendSMS, sendEmail, createTask, addContactToWorkflow, updateFunnelPage
-
-Jaz's details:
-- Phone: (405) 886-9441
-- Website: salesignaturehomes.com  
-- Booking: https://salesignaturehomes.com/scheduleyourfreecall
-- Social: @thejazsale
-- License: ERA Courtyard OKC #211954
-
-When Jaz asks you to DO something in GHL, tell them exactly what API action you would take and what the result would be. Be specific, fast, and practical. Jaz is busy and needs things done — not explained to death.`;
-  }
-
-  function addMsg(role,text){
+  function addMsg(role,text,cls){
     const box=document.getElementById('msgs');
     const d=document.createElement('div');d.className='msg '+(role==='ai'?'ai':'user');
     const av=document.createElement('div');av.className='av '+(role==='ai'?'ai':'user');av.textContent=role==='ai'?'AI':'👤';
-    const b=document.createElement('div');b.className='bubble';b.textContent=text;
+    const b=document.createElement('div');b.className='bubble'+(cls?' '+cls:'');b.textContent=text;
     d.appendChild(av);d.appendChild(b);box.appendChild(d);box.scrollTop=box.scrollHeight;
   }
 
@@ -242,34 +321,6 @@ When Jaz asks you to DO something in GHL, tell them exactly what API action you 
   }
 
   function removeTyping(){const e=document.getElementById('typing');if(e)e.remove();}
-
-  async function send(){
-    if(!connected||loading)return;
-    const inp=document.getElementById('inp');
-    const text=inp.value.trim();if(!text)return;
-    inp.value='';resize(inp);loading=true;
-    document.getElementById('sendBtn').disabled=true;
-    addMsg('user',text);
-    history.push({role:'user',content:text});
-    showTyping();
-    try{
-      const res=await fetch('/api/chat',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
-      });
-      if(!res.ok){const e=await res.json();throw new Error(e.error||'API error '+res.status);}
-      const data=await res.json();
-      const reply=data.content?.[0]?.text||'No response.';
-      history.push({role:'assistant',content:reply});
-      removeTyping();addMsg('ai',reply);
-    }catch(err){
-      removeTyping();
-      addMsg('ai','⚠️ Error: '+err.message);
-    }
-    loading=false;document.getElementById('sendBtn').disabled=false;inp.focus();
-  }
-
   function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
   function resize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 </script>
