@@ -29,9 +29,11 @@
   .setup-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 18px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
   .setup-btn:hover { opacity: 0.85; }
   .setup-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
-  .quick { padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+  .quick { padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface); overflow-x: auto; }
   .qbtn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 20px; padding: 5px 12px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .qbtn:hover { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.08); }
+  .qbtn.write { border-color: rgba(255,101,132,0.3); color: var(--accent2); }
+  .qbtn.write:hover { border-color: var(--accent2); background: rgba(255,101,132,0.08); }
   .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
   .messages::-webkit-scrollbar { width: 4px; }
   .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -88,16 +90,28 @@
   <button class="qbtn" onclick="ghlFetch('getContacts')">👥 Contacts</button>
   <button class="qbtn" onclick="ghlFetch('getPipelines')">🎯 Pipelines</button>
   <button class="qbtn" onclick="ghlFetch('getCalendars')">📅 Calendars</button>
-  <button class="qbtn" onclick="q('Give me a full summary of my GHL account and what I should focus on')">📊 Account Summary</button>
+  <button class="qbtn" onclick="ghlFetch('getForms')">📝 Forms</button>
+  <button class="qbtn" onclick="ghlFetch('getTags')">🏷️ Tags</button>
+  <button class="qbtn" onclick="ghlFetch('getOpportunities')">💰 Opportunities</button>
+  <button class="qbtn" onclick="q('Give me a full account summary and action plan')">📊 Account Summary</button>
 </div>
 <div class="messages" id="msgs">
   <div class="msg ai">
     <div class="av ai">AI</div>
     <div class="bubble">Hey Jaz! Your GHL AI Assistant is ready.
 
-Paste your three keys above and hit Connect — then use the quick buttons to pull live data from your GHL account, or just tell me what you need done.
+Connect your keys above then:
+- Use the buttons to pull live data from GHL
+- Type anything to get help or make changes
+- I can now READ and WRITE to your GHL account
 
-🔒 Keys stay in this browser tab only. Never stored anywhere.</div>
+Examples:
+"Add John Smith (john@email.com, 405-555-1234) as a contact"
+"Send a text to contact ID xyz saying hey lets connect"
+"Show me all my contacts from this week"
+"Pull my pipelines and tell me what needs attention"
+
+🔒 Keys stay in this browser tab only.</div>
   </div>
 </div>
 <div class="input-area">
@@ -122,7 +136,7 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
     document.getElementById('statusTxt').textContent='Connected';
     document.getElementById('inp').disabled=false;
     document.getElementById('sendBtn').disabled=false;
-    addMsg('ai','🎉 Connected! GHL is linked and ready.\n\nUse the quick buttons to pull live data from your account, or just tell me what you need.');
+    addMsg('ai','🎉 Connected! GHL is fully linked.\n\nI can now read AND write to your account. Use the buttons or just tell me what you need done.');
   }
 
   function q(text){
@@ -135,7 +149,16 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
     if(loading)return;
     loading=true;
     document.getElementById('sendBtn').disabled=true;
-    const labels={'getWorkflows':'📋 Pulling your workflows...','getFunnels':'🔀 Pulling your funnels...','getContacts':'👥 Pulling your contacts...','getPipelines':'🎯 Pulling your pipelines...','getCalendars':'📅 Pulling your calendars...'};
+    const labels={
+      'getWorkflows':'📋 Pulling your workflows...',
+      'getFunnels':'🔀 Pulling your funnels...',
+      'getContacts':'👥 Pulling your contacts...',
+      'getPipelines':'🎯 Pulling your pipelines...',
+      'getCalendars':'📅 Pulling your calendars...',
+      'getForms':'📝 Pulling your forms...',
+      'getTags':'🏷️ Pulling your tags...',
+      'getOpportunities':'💰 Pulling your opportunities...'
+    };
     addMsg('user',labels[action]||action);
     showTyping();
     try{
@@ -146,27 +169,25 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
       });
       const data=await res.json();
       removeTyping();
-      
-      // Show raw response for debugging
-      addMsg('ai','📡 GHL Response (status '+data.status+'):\n'+JSON.stringify(data.ghlData,null,2).substring(0,2000));
-      
-      // Then analyze with Claude
-      if(data.ghlData && !data.ghlData.error){
+      if(data.ghlData){
+        // Add to history for context
+        history.push({role:'user',content:`Here is the live GHL data for ${action}: ${JSON.stringify(data.ghlData,null,2).substring(0,3000)}`});
         showTyping();
-        const summary=await analyzeGHLData(action,data.ghlData);
+        const summary=await askClaude(`Analyze this live GHL data for action "${action}" and give Jaz a clear practical summary. What exists, what's working, what's missing, what to do next. Be specific and actionable.`);
         removeTyping();
         addMsg('ai',summary);
+      } else {
+        addMsg('ai','⚠️ GHL error (status '+data.status+'): '+JSON.stringify(data.ghlData));
       }
     }catch(err){
       removeTyping();
-      addMsg('ai','⚠️ Fetch error: '+err.message);
+      addMsg('ai','⚠️ Error: '+err.message);
     }
     loading=false;
     document.getElementById('sendBtn').disabled=false;
   }
 
-  async function analyzeGHLData(action,ghlData){
-    const prompt=`Here is live data from Jaz's GHL account for "${action}": ${JSON.stringify(ghlData,null,2).substring(0,3000)}\n\nAnalyze this and give Jaz a clear practical summary. What exists, what's working, what's missing, what to do next.`;
+  async function askClaude(prompt){
     history.push({role:'user',content:prompt});
     try{
       const res=await fetch('/api/chat',{
@@ -175,16 +196,32 @@ Paste your three keys above and hit Connect — then use the quick buttons to pu
         body:JSON.stringify({messages:history,system:getSystem(),claudeKey:claudeKey})
       });
       const data=await res.json();
-      const reply=data.content?.[0]?.text||'No analysis available.';
+      const reply=data.content?.[0]?.text||'No response.';
       history.push({role:'assistant',content:reply});
       return reply;
     }catch(err){
-      return '⚠️ Analysis error: '+err.message;
+      return '⚠️ Claude error: '+err.message;
     }
   }
 
   function getSystem(){
-    return `You are an AI assistant managing GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK. Location ID: ${locId}. You help with workflows, funnels, contacts, pipelines, calendars, SMS and email campaigns. Jaz's phone: (405) 886-9441. Website: salesignaturehomes.com. Booking: https://salesignaturehomes.com/scheduleyourfreecall. Social: @thejazsale. Be specific, action-oriented, and efficient. Jaz is busy.`;
+    return `You are an AI assistant with full read and write access to GoHighLevel (GHL) for Jaz Sale at Sale Signature Homes and Sale Away Stays in Oklahoma City, OK.
+
+Location ID: ${locId}
+GHL API Key is available for all operations.
+
+You can perform these GHL actions by describing them:
+- READ: getWorkflows, getContacts, getFunnels, getPipelines, getCalendars, getForms, getTags, getOpportunities
+- WRITE: createContact, updateContact, addTagToContact, createOpportunity, updateOpportunity, sendSMS, sendEmail, createTask, addContactToWorkflow, updateFunnelPage
+
+Jaz's details:
+- Phone: (405) 886-9441
+- Website: salesignaturehomes.com  
+- Booking: https://salesignaturehomes.com/scheduleyourfreecall
+- Social: @thejazsale
+- License: ERA Courtyard OKC #211954
+
+When Jaz asks you to DO something in GHL, tell them exactly what API action you would take and what the result would be. Be specific, fast, and practical. Jaz is busy and needs things done — not explained to death.`;
   }
 
   function addMsg(role,text){
